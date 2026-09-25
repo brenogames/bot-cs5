@@ -1,12 +1,12 @@
 const mineflayer = require('mineflayer');
 const express = require('express');
 
-// --- SERVIDOR WEB (Para manter o bot na nuvem 24/7) ---
+// --- SERVIDOR WEB (para manter a nuvem ativa) ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Bot da Creative Squad 5 v.shoope está online e ativo!');
+  res.send('Bot da Creative Squad 5 v.shoope está online!');
 });
 
 app.listen(PORT, () => {
@@ -19,17 +19,18 @@ function createBot() {
     host: 'CreariveSquad5vShope.aternos.me',
     port: 26575,
     username: 'Bot_CS5_AFK',
-    version: '1.20.6',
-    checkTimeoutInterval: 60 * 1000, // Dá mais tempo para o Aternos responder
-    skipValidation: true             // Ignora validações de conta oficial Microsoft
+    version: '1.20.4',
+    checkTimeoutInterval: 60 * 1000,
+    skipValidation: true,
+    hideErrors: true
   });
 
   let targetPlayer = null;
 
-  bot.on('spawn', () => {
+ bot.on('spawn', () => {
     console.log('Bot conectado com sucesso na Creative Squad 5 v.shoope!');
     
-    // Aguarda 5 segundos após carregar o mapa para iniciar o Anti-AFK (evita desconexões)
+    // Aguarda 10 segundos antes de começar o Anti-AFK
     setTimeout(() => {
       setInterval(() => {
         if (bot && bot.entity) {
@@ -37,31 +38,36 @@ function createBot() {
           setTimeout(() => bot.setControlState('jump', false), 500);
         }
       }, 30000);
-    }, 5000);
+    }, 10000);
   });
 
-  // Mensagem automática quando um jogador entra no servidor
+  // Renasce automaticamente se morrer para monstros, queda ou fome
+  bot.on('death', () => {
+    console.log('O bot morreu! Renascendo automaticamente...');
+    setTimeout(() => {
+      bot.respawn();
+    }, 1000);
+  });
+
+  // Boas-vindas automáticas
   bot.on('playerJoined', (player) => {
     if (player.username !== bot.username) {
       bot.chat(`Bem-vindo(a) ao Creative Squad 5 v.shoope, ${player.username}! 🎉`);
     }
   });
 
-  // Processador de comandos do Chat
+  // Comandos do Chat
   bot.on('chat', (username, message) => {
-    if (username === bot.username) return; // Ignora as próprias mensagens do bot
+    if (username === bot.username) return;
 
     const msg = message.toLowerCase().trim();
 
-    // Comando 1: Informar IP
     if (msg === '!ip') {
       bot.chat('O IP do servidor é: CreariveSquad5vShope.aternos.me:26575');
     }
 
-    // Comando 2: Calculadora Matemática (!calcular 123*123)
     if (msg.startsWith('!calcular ')) {
       const expressao = message.slice(10).replace(/x/gi, '*');
-      
       try {
         if (/^[0-9+\-*/. ()]+$/.test(expressao)) {
           const resultado = Function(`"use strict"; return (${expressao})`)();
@@ -74,27 +80,23 @@ function createBot() {
       }
     }
 
-    // Comando 3: Seguir Jogador
     if (msg === '!siga') {
       targetPlayer = username;
       bot.chat(`Entendido, ${username}! Agora estou te seguindo.`);
     }
 
-    // Comando 4: Parar de Seguir
     if (msg === '!pare') {
       targetPlayer = null;
       bot.setControlState('forward', false);
       bot.chat('Parando de seguir.');
     }
 
-    // Comando 5: Agachar (Animação)
     if (msg === '!agachar') {
       bot.setControlState('sneak', true);
       setTimeout(() => bot.setControlState('sneak', false), 1500);
     }
   });
 
-  // Lógica contínua para seguir o jogador
   bot.on('physicsTick', () => {
     if (targetPlayer) {
       const playerEntity = bot.players[targetPlayer]?.entity;
@@ -111,7 +113,7 @@ function createBot() {
     }
   });
 
-  // Reconexão automática se for desconectado
+  // Tenta reconectar automaticamente quando o servidor desliga ou cai
   bot.on('end', () => {
     console.log('Conexão perdida. Tentando reconectar em 20 segundos...');
     setTimeout(createBot, 20000);
